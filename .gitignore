@@ -1,0 +1,6 @@
+render/node_modules/
+render/smoke*.png
+render/smoke.js
+render/render.log
+render/package.json
+render/package-lock.json

@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<title>Asiacell × Netflix — Customer Journey</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=Cairo:wght@400;600;700;800;900&family=Sora:wght@400;600;700;800&family=Bebas+Neue&family=Oswald:wght@700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; }
+  body { font-family: 'Tajawal', system-ui, sans-serif; }
+  @keyframes blink { 0%, 50% { opacity: 1 } 51%, 100% { opacity: 0 } }
+  * { box-sizing: border-box; }
+  body.record * { transition: none !important; animation: none !important; }
+</style>
+<script>
+  if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('record')) {
+    document.documentElement.classList.add('record');
+    document.addEventListener('DOMContentLoaded', () => document.body.classList.add('record'));
+  }
+</script>
+</head>
+<body>
+<div id="root" style="position: fixed; inset: 0;"></div>
+
+<script src="vendor/react.development.js"></script>
+<script src="vendor/react-dom.development.js"></script>
+<script src="vendor/babel.min.js"></script>
+
+<script type="text/babel" data-presets="env,react">
+const { useState, useEffect, useRef, useMemo, useContext, createContext } = React;
+
+// ═══════════════════════════════════════════════════════════════
+// ANIMATION ENGINE
+// ═══════════════════════════════════════════════════════════════
+
+const Easing = {
+  linear: (t) => t,
+  easeInQuad:    (t) => t * t,
+  easeOutQuad:   (t) => t * (2 - t),
+  easeInOutQuad: (t) => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t),
+  easeInCubic:    (t) => t * t * t,
+  easeOutCubic:   (t) => (--t) * t * t + 1,
+  easeInOutCubic: (t) => (t < 0.5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1),
+  easeInQuart:    (t) => t * t * t * t,
+  easeOutQuart:   (t) => 1 - (--t) * t * t * t,
+  easeInOutQuart: (t) => (t < 0.5 ? 8 * t * t * t * t : 1 - 8 * (--t) * t * t * t),
+  easeInExpo:  (t) => (t === 0 ? 0 : Math.pow(2, 10 * (t - 1))),
+  easeOutExpo: (t) => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t)),
+  easeInOutExpo: (t) => {
+    if (t === 0) return 0; if (t === 1) return 1;
+    if (t < 0.5) return 0.5 * Math.pow(2, 20 * t - 10);
+    return 1 - 0.5 * Math.pow(2, -20 * t + 10);
+  },
+  easeInSine:    (t) => 1 - Math.cos((t * Math.PI) / 2),
+  easeOutSine:   (t) => Math.sin((t * Math.PI) / 2),
+  easeInOutSine: (t) => -(Math.cos(Math.PI * t) - 1) / 2,
+  easeOutBack: (t) => {
+    const c1 = 1.70158, c3 = c1 + 1;
+    return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+  },
+  easeInBack: (t) => {
+    const c1 = 1.70158, c3 = c1 + 1;
+    return c3 * t * t * t - c1 * t * t;
+  },
+  easeInOutBack: (t) => {
+    const c1 = 1.70158, c2 = c1 * 1.525;
+    return t < 0.5
+      ? (Math.pow(2 * t, 2) * ((c2 + 1) * 2 * t - c2)) / 2
+      : (Math.pow(2 * t - 2, 2) * ((c2 + 1) * (t * 2 - 2) + c2) + 2) / 2;
+  },
+  easeOutElastic: (t) => {
+    const c4 = (2 * Math.PI) / 3;
+    if (t === 0) return 0; if (t === 1) return 1;
+    return Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1;
+  },
+};
+
+const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+
+function interpolate(input, output, ease = Easing.linear) {
+  return (t) => {
+    if (t <= input[0]) return output[0];
+    if (t >= input[input.length - 1]) return output[output.length - 1];
+    for (let i = 0; i < input.length - 1; i++) {
+      if (t >= input[i] && t <= input[i + 1]) {
+        const span = input[i + 1] - input[i];
+        const local = span === 0 ? 0 : (t - input[i]) / span;
+        const easeFn = Array.isArray(ease) ? (ease[i] || Easing.linear) : ease;
+        return output[i] + (output[i + 1] - output[i]) * easeFn(local);
+      }
+    }
+    return output[output.length - 1];
+  };
+}
+
+function animate({ from = 0, to = 1, start = 0, end = 1, ease = Easing.easeInOutCubic }) {
+  return (t) => {
+    if (t <= start) return from;
+    if (t >= end) return to;
+    return from + (to - from) * ease((t - start) / (end - start));
+  };
+}
+
+const TimelineContext = createContext({ time: 0, duration: 10, playing: false });
+const useTime = () => useContext(TimelineContext).time;
+const useTimeline = () => useContext(TimelineContext);
+const SpriteContext = createContext({ localTime: 0, progress: 0, duration: 0 });
+const useSprite = () => useContext(SpriteContext);
+
+function Sprite({ start = 0, end = Infinity, children, keepMounted = false }) {
+  const { time } = useTimeline();
+  const visible = time >= start && time <= end;
+  if (!visible && !keepMounted) return null;
+  const duration = end - start;
+  const localTime = Math.max(0, time - start);
+  const progress = duration > 0 && isFinite(duration) ? clamp(localTime / duration, 0, 1) : 0;
+  const value = { localTime, progress, duration, visible };
+  return (
+    <SpriteContext.Provider value={value}>
+      {typeof children === 'function' ? children(value) : children}
+    </SpriteContext.Provider>
+  );
+}
+
+function Stage({ width = 1280, height = 720, duration = 10, background = '#f6f4ef',
+  loop = true, autoplay = true, persistKey = 'animstage', children }) {
+  const recordMode = typeof window !== 'undefined' &&
+    typeof location !== 'undefined' &&
+    new URLSearchParams(location.search).has('record');
+  const [time, setTime] = useState(() => {
+    if (recordMode) return 0;
+    try {
+      const v = parseFloat(localStorage.getItem(persistKey + ':t') || '0');
+      return isFinite(v) ? clamp(v, 0, duration) : 0;
+    } catch { return 0; }
+  });
+  const [playing, setPlaying] = useState(autoplay && !recordMode);
+  const [hoverTime, setHoverTime] = useState(null);
+  const [scale, setScale] = useState(1);
+  const stageRef = useRef(null);
+  const canvasRef = useRef(null);
+  const rafRef = useRef(null);
+  const lastTsRef = useRef(null);
+
+  useEffect(() => {
+    if (recordMode) return;
+    try { localStorage.setItem(persistKey + ':t', String(time)); } catch {}
+  }, [time, persistKey, recordMode]);
+
+  useEffect(() => {
+    if (recordMode) { setScale(1); return; }
+    if (!stageRef.current) return;
+    const el = stageRef.current;
+    const measure = () => {
+      const barH = 44;
+      const s = Math.min(el.clientWidth / width, (el.clientHeight - barH) / height);
+      setScale(Math.max(0.05, s));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener('resize', measure);
+    return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
+  }, [width, height, recordMode]);
+
+  useEffect(() => {
+    if (recordMode) {
+      window.__record = { setTime, ready: true };
+      return () => { delete window.__record; };
+    }
+  }, [recordMode]);
+
+  useEffect(() => {
+    if (!playing || recordMode) { lastTsRef.current = null; return; }
+    const step = (ts) => {
+      if (lastTsRef.current == null) lastTsRef.current = ts;
+      const dt = (ts - lastTsRef.current) / 1000;
+      lastTsRef.current = ts;
+      setTime((t) => {
+        let next = t + dt;
+        if (next >= duration) {
+          if (loop) next = next % duration;
+          else { next = duration; setPlaying(false); }
+        }
+        return next;
+      });
+      rafRef.current = requestAnimationFrame(step);
+    };
+    rafRef.current = requestAnimationFrame(step);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); lastTsRef.current = null; };
+  }, [playing, duration, loop]);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+      if (e.code === 'Space') { e.preventDefault(); setPlaying(p => !p); }
+      else if (e.code === 'ArrowLeft') setTime(t => clamp(t - (e.shiftKey ? 1 : 0.1), 0, duration));
+      else if (e.code === 'ArrowRight') setTime(t => clamp(t + (e.shiftKey ? 1 : 0.1), 0, duration));
+      else if (e.key === '0' || e.code === 'Home') setTime(0);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [duration]);
+
+  const displayTime = hoverTime != null ? hoverTime : time;
+  const ctxValue = useMemo(
+    () => ({ time: displayTime, duration, playing, setTime, setPlaying }),
+    [displayTime, duration, playing]
+  );
+
+  if (recordMode) {
+    return (
+      <div style={{
+        width, height, background, position: 'absolute', top: 0, left: 0, overflow: 'hidden',
+      }}>
+        <TimelineContext.Provider value={ctxValue}>
+          {children}
+        </TimelineContext.Provider>
+      </div>
+    );
+  }
+
+  return (
+    <div ref={stageRef} style={{
+      position: 'absolute', inset: 0,
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      background: '#0a0a0a', fontFamily: 'Inter, system-ui, sans-serif',
+    }}>
+      <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', overflow: 'hidden', minHeight: 0 }}>
+        <div ref={canvasRef} style={{
+          width, height, background, position: 'relative',
+          transform: `scale(${scale})`, transformOrigin: 'center',
+          flexShrink: 0, boxShadow: '0 20px 60px rgba(0,0,0,0.4)', overflow: 'hidden',
+        }}>
+          <TimelineContext.Provider value={ctxValue}>
+            {children}
+          </TimelineContext.Provider>
+        </div>
+      </div>
+      <PlaybackBar
+        time={displayTime} actualTime={time} duration={duration} playing={playing}
+        onPlayPause={() => setPlaying(p => !p)}
+        onReset={() => setTime(0)}
+        onSeek={(t) => setTime(t)}
+        onHover={(t) => setHoverTime(t)}
+      />
+    </div>
+  );
+}
+
+function PlaybackBar({ time, duration, playing, onPlayPause, onReset, onSeek, onHover }) {
+  const trackRef = useRef(null);
+  const [dragging, setDragging] = useState(false);
+
+  const timeFromEvent = React.useCallback((e) => {
+    const rect = trackRef.current.getBoundingClientRect();
+    return clamp((e.clientX - rect.left) / rect.width, 0, 1) * duration;
+  }, [duration]);
+
+  const onTrackMove = (e) => {
+    if (!trackRef.current) return;
+    if (dragging) onSeek(timeFromEvent(e));
+    else onHover(timeFromEvent(e));
+  };
+
+  useEffect(() => {
+    if (!dragging) return;
+    const onUp = () => setDragging(false);
+    const onMove = (e) => { if (trackRef.current) onSeek(timeFromEvent(e)); };
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('mousemove', onMove);
+    return () => { window.removeEventListener('mouseup', onUp); window.removeEventListener('mousemove', onMove); };
+  }, [dragging, timeFromEvent, onSeek]);
+
+  const pct = duration > 0 ? (time / duration) * 100 : 0;
+  const fmt = (t) => {
+    const total = Math.max(0, t);
+    const m = Math.floor(total / 60);
+    const s = Math.floor(total % 60);
+    const cs = Math.floor((total * 100) % 100);
+    return `${m}:${String(s).padStart(2,'0')}.${String(cs).padStart(2,'0')}`;
+  };
+  const mono = 'JetBrains Mono, ui-monospace, monospace';
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 12,
+      padding: '8px 16px', background: 'rgba(20,20,20,0.92)',
+      borderTop: '1px solid rgba(255,255,255,0.08)',
+      width: '100%', maxWidth: 680, alignSelf: 'center',
+      borderRadius: 8, color: '#f6f4ef',
+      fontFamily: 'Inter, system-ui, sans-serif', userSelect: 'none', flexShrink: 0,
+    }}>
+      <IconBtn onClick={onReset} title="Return to start (0)">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M3 2v10M12 2L5 7l7 5V2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round"/>
+        </svg>
+      </IconBtn>
+      <IconBtn onClick={onPlayPause} title="Play/pause (space)">
+        {playing ? (
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <rect x="3" y="2" width="3" height="10" fill="currentColor"/>
+            <rect x="8" y="2" width="3" height="10" fill="currentColor"/>
+          </svg>
+        ) : (
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M3 2l9 5-9 5V2z" fill="currentColor"/>
+          </svg>
+        )}
+      </IconBtn>
+      <div style={{ fontFamily: mono, fontSize: 12, fontVariantNumeric: 'tabular-nums', width: 64, textAlign: 'right', color: '#f6f4ef' }}>
+        {fmt(time)}
+      </div>
+      <div ref={trackRef}
+        onMouseMove={onTrackMove}
+        onMouseLeave={() => { if (!dragging) onHover(null); }}
+        onMouseDown={(e) => { setDragging(true); onSeek(timeFromEvent(e)); onHover(null); }}
+        style={{ flex: 1, height: 22, position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+        <div style={{ position: 'absolute', left: 0, right: 0, height: 4, background: 'rgba(255,255,255,0.12)', borderRadius: 2 }}/>
+        <div style={{ position: 'absolute', left: 0, width: `${pct}%`, height: 4, background: 'oklch(72% 0.12 250)', borderRadius: 2 }}/>
+        <div style={{ position: 'absolute', left: `${pct}%`, top: '50%', width: 12, height: 12, marginLeft: -6, marginTop: -6, background: '#fff', borderRadius: 6, boxShadow: '0 2px 4px rgba(0,0,0,0.4)' }}/>
+      </div>
+      <div style={{ fontFamily: mono, fontSize: 12, fontVariantNumeric: 'tabular-nums', width: 64, textAlign: 'left', color: 'rgba(246,244,239,0.55)' }}>
+        {fmt(duration)}
+      </div>
+    </div>
+  );
+}
+
+function IconBtn({ children, onClick, title }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button onClick={onClick} title={title}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+      style={{
+        width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: hover ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.04)',
+        border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: '#f6f4ef',
+        cursor: 'pointer', padding: 0, transition: 'background 120ms',
+      }}>
+      {children}
+    </button>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BRAND
+// ═══════════════════════════════════════════════════════════════
+
+const BRAND = {
+  asiacellRed:       '#E30613',
+  asiacellRedDeep:   '#B5050F',
+  asiacellRedLight:  '#FF2D3A',
+  asiacellGray:      '#9D9FA2',
+  asiacellInk:       '#1A1A1A',
+  asiacellLight:     '#FFF5F5',
+  asiacellOrange:    '#E30613',
+  asiacellOrangeDeep:'#B5050F',
+  asiacellOrangeLight:'#FF2D3A',
+  netflixRed:        '#E50914',
+  netflixRedDeep:    '#B0060F',
+  netflixBlack:      '#000000',
+  netflixDark:       '#141414',
+  white:             '#FFFFFF',
+  off:               '#F8F4EE',
+  ink:               '#0A0A0A',
+  asiacellLogoSrc:   'project/assets/asiacell-logo.png',
+};
+
+function AsiacellLogoImg({ height = 80, white: isWhite = false }) {
+  return (
+    <img src={BRAND.asiacellLogoSrc} alt="Asiacell" style={{
+      height, width: 'auto', display: 'block',
+      filter: isWhite ? 'brightness(0) invert(1)' : 'none',
+    }} />
+  );
+}
+
+function NetflixLogo({ height = 80, color = BRAND.netflixRed }) {
+  return (
+    <div style={{
+      fontFamily: '"Bebas Neue", "Oswald", "Impact", sans-serif',
+      fontSize: height, lineHeight: 0.85, letterSpacing: '0.02em',
+      color, fontWeight: 900,
+      textShadow: `0 ${height*0.04}px ${height*0.08}px rgba(229,9,20,0.35)`,
+      transform: 'scaleY(1.15)', transformOrigin: 'center', display: 'inline-block',
+    }}>NETFLIX</div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
+
+function PhoneFrame({ children, width = 360, height = 740, dark = true }) {
+  return (
+    <div style={{
+      width, height, borderRadius: width * 0.13, background: '#0a0a0a', padding: 8,
+      boxShadow: '0 40px 100px rgba(0,0,0,0.55), 0 0 0 1.5px #2a2a2a, inset 0 0 0 2px #1a1a1a',
+      position: 'relative',
+    }}>
+      <div style={{ width: '100%', height: '100%', borderRadius: width * 0.11, overflow: 'hidden', background: dark ? '#000' : '#fff', position: 'relative' }}>
+        <div style={{ position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)', width: width * 0.32, height: width * 0.085, borderRadius: width * 0.05, background: '#000', zIndex: 50 }} />
+        {children}
+        <div style={{ position: 'absolute', bottom: 6, left: '50%', transform: 'translateX(-50%)', width: width * 0.34, height: 4, borderRadius: 2, background: dark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.3)', zIndex: 50 }} />
+      </div>
+    </div>
+  );
+}
+
+function TapPulse({ x, y, delay = 0 }) {
+  const { localTime } = useSprite();
+  const t = clamp((localTime - delay) / 0.8, 0, 1);
+  if (t <= 0) return null;
+  return (
+    <div style={{ position: 'absolute', left: x, top: y, pointerEvents: 'none' }}>
+      <div style={{
+        position: 'absolute', left: -40, top: -40, width: 80, height: 80, borderRadius: '50%',
+        border: `3px solid ${BRAND.asiacellOrange}`,
+        opacity: (1 - t) * 0.9, transform: `scale(${0.4 + t * 1.6})`,
+      }} />
+      <div style={{
+        position: 'absolute', left: -16, top: -16, width: 32, height: 32, borderRadius: '50%',
+        background: BRAND.asiacellOrange, boxShadow: `0 0 20px ${BRAND.asiacellOrange}`,
+        opacity: 1 - t * 0.3, transform: `scale(${1 - t * 0.2})`,
+      }} />
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SCREENS
+// ═══════════════════════════════════════════════════════════════
+
+function ScreenChrome({ children, dark = true, time = '9:41' }) {
+  const c = dark ? '#fff' : '#000';
+  return (
+    <div style={{ width: '100%', height: '100%', background: dark ? '#000' : '#fff', position: 'relative', overflow: 'hidden' }}>
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: 44,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 28px', paddingTop: 14, zIndex: 30,
+        fontFamily: '-apple-system, system-ui', fontSize: 15, fontWeight: 600, color: c,
+      }}>
+        <span>{time}</span>
+        <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <svg width="18" height="11" viewBox="0 0 18 11">
+            <rect x="0" y="6" width="3" height="5" rx="0.6" fill={c}/>
+            <rect x="5" y="4" width="3" height="7" rx="0.6" fill={c}/>
+            <rect x="10" y="2" width="3" height="9" rx="0.6" fill={c}/>
+            <rect x="15" y="0" width="3" height="11" rx="0.6" fill={c}/>
+          </svg>
+          <svg width="24" height="11" viewBox="0 0 24 11">
+            <rect x="0.5" y="0.5" width="20" height="10" rx="2.5" stroke={c} strokeOpacity="0.5" fill="none"/>
+            <rect x="2" y="2" width="17" height="7" rx="1" fill={c}/>
+          </svg>
+        </span>
+      </div>
+      <div style={{ paddingTop: 44, height: '100%', boxSizing: 'border-box' }}>{children}</div>
+    </div>
+  );
+}
+
+function Screen1_URL({ progress = 0 }) {
+  const fullURL = 'netflix.com/iq';
+  const shown = fullURL.slice(0, Math.ceil(fullURL.length * clamp(progress, 0, 1)));
+  return (
+    <ScreenChrome dark={false}>
+      <div style={{ background: '#F2F2F7', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <div style={{ width: 10, height: 10, borderRadius: 5, background: '#FF5F57' }} />
+          <div style={{ width: 10, height: 10, borderRadius: 5, background: '#FEBC2E' }} />
+          <div style={{ width: 10, height: 10, borderRadius: 5, background: '#28C840' }} />
+        </div>
+        <div style={{
+          flex: 1, height: 36, background: '#fff', borderRadius: 10,
+          display: 'flex', alignItems: 'center', padding: '0 14px',
+          fontFamily: 'system-ui', fontSize: 15, color: '#1a1a1a',
+          boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.08)',
+        }}>
+          <svg width="14" height="14" viewBox="0 0 14 14" style={{ marginRight: 8, opacity: 0.5 }}>
+            <path d="M10 6V4a3 3 0 10-6 0v2H3v6h8V6h-1z" stroke="#666" strokeWidth="1.2" fill="none"/>
+          </svg>
+          <span>https://www.{shown}<span style={{ opacity: progress < 1 ? 0.6 : 0, animation: 'blink 1s infinite' }}>|</span></span>
+        </div>
+      </div>
+      <div style={{
+        flex: 1, height: 'calc(100% - 60px)',
+        background: 'linear-gradient(180deg, #000 0%, #1a0508 50%, #000 100%)',
+        position: 'relative',
+        opacity: progress > 0.6 ? (progress - 0.6) / 0.4 : 0,
+      }}>
+        <div style={{
+          padding: '60px 24px 30px',
+          fontFamily: '"Bebas Neue", "Oswald", Impact, sans-serif',
+          fontSize: 56, fontWeight: 900, color: '#E50914',
+          letterSpacing: '0.02em', transform: 'scaleY(1.15)', transformOrigin: 'left center',
+          textShadow: '0 4px 20px rgba(229,9,20,0.5)',
+        }}>NETFLIX</div>
+        <div style={{ padding: '40px 28px', color: '#fff', textAlign: 'center', direction: 'rtl', fontFamily: '"Tajawal", "Cairo", system-ui' }}>
+          <div style={{ fontSize: 40, fontWeight: 800, lineHeight: 1.2, marginBottom: 18 }}>أفلام ومسلسلات بلا حدود</div>
+          <div style={{ fontSize: 18, opacity: 0.85, marginBottom: 32 }}>شاهد على أي مكان. ألغِ في أي وقت.</div>
+          <div style={{ background: '#E50914', color: '#fff', padding: '16px 32px', borderRadius: 6, fontSize: 18, fontWeight: 700, display: 'inline-block', boxShadow: '0 8px 30px rgba(229,9,20,0.6)' }}>
+            ابدأ الآن
+          </div>
+        </div>
+      </div>
+    </ScreenChrome>
+  );
+}
+
+function Screen2_Email({ progress = 0 }) {
+  const fullEmail = 'ahmed.iraq@gmail.com';
+  const shown = fullEmail.slice(0, Math.ceil(fullEmail.length * clamp(progress * 1.4, 0, 1)));
+  return (
+    <ScreenChrome dark>
+      <div style={{ background: '#000', height: 'calc(100% - 44px)', padding: '32px 28px', color: '#fff', direction: 'rtl', fontFamily: '"Tajawal", "Cairo", system-ui' }}>
+        <div style={{ fontFamily: '"Bebas Neue", "Oswald", Impact, sans-serif', fontSize: 40, color: '#E50914', letterSpacing: '0.02em', transform: 'scaleY(1.15)', transformOrigin: 'right center', marginBottom: 56 }}>NETFLIX</div>
+        <div style={{ fontSize: 32, fontWeight: 800, marginBottom: 12 }}>تسجيل الدخول</div>
+        <div style={{ fontSize: 16, opacity: 0.7, marginBottom: 36 }}>أدخل بريدك الإلكتروني للمتابعة</div>
+        <div style={{ background: '#1a1a1a', border: `2px solid ${progress > 0.05 ? '#E50914' : '#333'}`, borderRadius: 6, padding: '18px', fontSize: 17, minHeight: 32, marginBottom: 16, direction: 'ltr' }}>
+          {shown}{progress < 0.7 && <span style={{ animation: 'blink 1s infinite', marginLeft: 2 }}>|</span>}
+        </div>
+        <div style={{ background: '#1a1a1a', border: '2px solid #333', borderRadius: 6, padding: '18px', fontSize: 17, color: 'rgba(255,255,255,0.4)', marginBottom: 28, direction: 'ltr' }}>
+          ••••••••
+        </div>
+        <div style={{
+          background: progress > 0.85 ? '#E50914' : '#7a0a10', color: '#fff', borderRadius: 6,
+          padding: '18px', textAlign: 'center', fontSize: 18, fontWeight: 700,
+          transition: 'background 200ms', boxShadow: progress > 0.85 ? '0 8px 30px rgba(229,9,20,0.5)' : 'none',
+        }}>التالي</div>
+      </div>
+    </ScreenChrome>
+  );
+}
+
+function Screen3_Plan({ selected = 1 }) {
+  const plans = [
+    { name: 'Mobile',   price: '4,000',  features: ['HD', 'هاتف فقط'],  badge: null },
+    { name: 'Standard', price: '9,000',  features: ['Full HD', 'جهازان'], badge: 'الأكثر شيوعاً' },
+    { name: 'Premium',  price: '14,000', features: ['4K + HDR', '4 أجهزة'], badge: null },
+  ];
+  return (
+    <ScreenChrome dark>
+      <div style={{ background: '#000', height: 'calc(100% - 44px)', padding: '24px 20px', color: '#fff', direction: 'rtl', fontFamily: '"Tajawal", "Cairo", system-ui', overflow: 'hidden' }}>
+        <div style={{ fontSize: 13, color: '#E50914', fontWeight: 700, marginBottom: 8 }}>الخطوة ٣ من ٣</div>
+        <div style={{ fontSize: 26, fontWeight: 800, marginBottom: 6, lineHeight: 1.2 }}>اختر الخطة المناسبة لك</div>
+        <div style={{ fontSize: 13, opacity: 0.7, marginBottom: 20 }}>ألغِ الاشتراك في أي وقت</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {plans.map((p, i) => {
+            const isSelected = i === selected;
+            return (
+              <div key={i} style={{
+                background: isSelected ? 'linear-gradient(135deg, #1a0508, #2a0810)' : '#0f0f0f',
+                border: `2px solid ${isSelected ? '#E50914' : '#222'}`, borderRadius: 12, padding: '14px 16px',
+                position: 'relative', transform: isSelected ? 'scale(1.02)' : 'scale(1)', transition: 'all 250ms',
+                boxShadow: isSelected ? '0 12px 30px rgba(229,9,20,0.3)' : 'none',
+              }}>
+                {p.badge && <div style={{ position: 'absolute', top: -10, right: 16, background: '#E50914', padding: '4px 10px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>{p.badge}</div>}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: 18, fontWeight: 700 }}>{p.name}</div>
+                    <div style={{ fontSize: 12, opacity: 0.65, marginTop: 4 }}>{p.features.join(' · ')}</div>
+                  </div>
+                  <div style={{ textAlign: 'left', direction: 'ltr' }}>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: isSelected ? '#E50914' : '#fff' }}>{p.price}</div>
+                    <div style={{ fontSize: 11, opacity: 0.65 }}>IQD/شهر</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </ScreenChrome>
+  );
+}
+
+function Screen4_Payment({ highlight = false }) {
+  const methods = [
+    { name: 'بطاقة ائتمان', sub: 'Visa, Mastercard',       icon: 'card', isAsia: false },
+    { name: 'آسياسيل',      sub: 'الدفع من رصيد الهاتف',   icon: 'asia', isAsia: true },
+    { name: 'PayPal',       sub: 'الدفع الإلكتروني',        icon: 'pp',   isAsia: false },
+  ];
+  return (
+    <ScreenChrome dark>
+      <div style={{ background: '#000', height: 'calc(100% - 44px)', padding: '24px 20px', color: '#fff', direction: 'rtl', fontFamily: '"Tajawal", "Cairo", system-ui' }}>
+        <div style={{ fontSize: 13, color: '#E50914', fontWeight: 700, marginBottom: 8 }}>الدفع</div>
+        <div style={{ fontSize: 26, fontWeight: 800, marginBottom: 24, lineHeight: 1.2 }}>اختر طريقة الدفع</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {methods.map((m, i) => {
+            const sel = highlight && m.isAsia;
+            return (
+              <div key={i} style={{
+                background: sel ? `linear-gradient(135deg, ${BRAND.asiacellOrangeLight}22, ${BRAND.asiacellOrangeDeep}33)` : '#0f0f0f',
+                border: `2px solid ${sel ? BRAND.asiacellOrange : '#222'}`, borderRadius: 12, padding: '16px',
+                display: 'flex', alignItems: 'center', gap: 14,
+                transform: sel ? 'scale(1.02)' : 'scale(1)', transition: 'all 300ms',
+                boxShadow: sel ? `0 12px 40px ${BRAND.asiacellOrange}55` : 'none',
+              }}>
+                <div style={{
+                  width: 48, height: 48, borderRadius: 10,
+                  background: m.isAsia ? `linear-gradient(135deg, ${BRAND.asiacellRedLight}, ${BRAND.asiacellRedDeep})` : '#1a1a1a',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                }}>
+                  {m.icon === 'asia' && <img src={BRAND.asiacellLogoSrc} alt="" style={{ height: 28, width: 'auto', filter: 'brightness(0) invert(1)' }} />}
+                  {m.icon === 'card' && <svg width="26" height="20" viewBox="0 0 26 20"><rect x="1" y="1" width="24" height="18" rx="3" stroke="#888" strokeWidth="1.5" fill="none"/><rect x="1" y="6" width="24" height="3" fill="#888"/></svg>}
+                  {m.icon === 'pp' && <div style={{ fontFamily: 'serif', fontWeight: 800, fontSize: 18, color: '#0070BA', fontStyle: 'italic' }}>P</div>}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 17, fontWeight: 700 }}>{m.name}</div>
+                  <div style={{ fontSize: 12, opacity: 0.6, marginTop: 3 }}>{m.sub}</div>
+                </div>
+                <div style={{
+                  width: 24, height: 24, borderRadius: '50%',
+                  border: `2px solid ${sel ? BRAND.asiacellOrange : '#444'}`,
+                  background: sel ? BRAND.asiacellOrange : 'transparent',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {sel && <svg width="12" height="9" viewBox="0 0 12 9"><path d="M1 4l4 4 6-7" stroke="#fff" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </ScreenChrome>
+  );
+}
+
+function Screen5_Phone({ progress = 0 }) {
+  const fullPhone = '7701234567';
+  const shown = fullPhone.slice(0, Math.ceil(fullPhone.length * clamp(progress * 1.3, 0, 1)));
+  return (
+    <ScreenChrome dark>
+      <div style={{ background: '#000', height: 'calc(100% - 44px)', padding: '32px 24px', color: '#fff', direction: 'rtl', fontFamily: '"Tajawal", "Cairo", system-ui' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
+          <img src={BRAND.asiacellLogoSrc} alt="Asiacell" style={{ height: 44, width: 'auto' }} />
+        </div>
+        <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 10, lineHeight: 1.2 }}>أدخل رقم هاتفك</div>
+        <div style={{ fontSize: 14, opacity: 0.7, marginBottom: 32 }}>سنرسل رمز التحقق إلى رقمك</div>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 20, direction: 'ltr' }}>
+          <div style={{ background: '#1a1a1a', border: '2px solid #333', borderRadius: 10, padding: '18px 14px', fontSize: 18, fontWeight: 600 }}>+964</div>
+          <div style={{ flex: 1, background: '#1a1a1a', border: `2px solid ${progress > 0.05 ? BRAND.asiacellOrange : '#333'}`, borderRadius: 10, padding: '18px 16px', fontSize: 19, fontFamily: 'JetBrains Mono, ui-monospace', letterSpacing: '0.05em' }}>
+            {shown}{progress < 0.85 && <span style={{ animation: 'blink 1s infinite' }}>|</span>}
+          </div>
+        </div>
+        <div style={{
+          background: progress > 0.9 ? `linear-gradient(135deg, ${BRAND.asiacellOrangeLight}, ${BRAND.asiacellOrangeDeep})` : '#3a1f0a',
+          color: '#fff', borderRadius: 10, padding: '18px', textAlign: 'center',
+          fontSize: 18, fontWeight: 700,
+          boxShadow: progress > 0.9 ? `0 10px 30px ${BRAND.asiacellOrange}60` : 'none', transition: 'all 200ms',
+        }}>إرسال الرمز</div>
+      </div>
+    </ScreenChrome>
+  );
+}
+
+function Screen6_OTP({ filled = 0 }) {
+  const code = '482913';
+  return (
+    <ScreenChrome dark>
+      <div style={{ background: '#000', height: 'calc(100% - 44px)', padding: '32px 24px', color: '#fff', direction: 'rtl', fontFamily: '"Tajawal", "Cairo", system-ui' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
+          <img src={BRAND.asiacellLogoSrc} alt="Asiacell" style={{ height: 44, width: 'auto' }} />
+        </div>
+        <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 10, lineHeight: 1.2 }}>رمز التحقق</div>
+        <div style={{ fontSize: 14, opacity: 0.7, marginBottom: 36, lineHeight: 1.5 }}>
+          أدخل الرمز المرسل إلى<br/>
+          <span style={{ direction: 'ltr', display: 'inline-block', fontWeight: 700, color: '#fff' }}>+964 770 123 4567</span>
+        </div>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 36, direction: 'ltr' }}>
+          {code.split('').map((d, i) => {
+            const active = i < filled;
+            const current = i === filled;
+            return (
+              <div key={i} style={{
+                width: 46, height: 60, background: active ? '#1a1a1a' : '#0a0a0a',
+                border: `2px solid ${current ? BRAND.asiacellOrange : (active ? '#444' : '#222')}`,
+                borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 28, fontWeight: 700, color: active ? BRAND.asiacellOrange : '#444',
+                boxShadow: current ? `0 0 0 4px ${BRAND.asiacellOrange}33` : 'none', transition: 'all 200ms',
+              }}>
+                {active ? d : ''}
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ textAlign: 'center', fontSize: 14, opacity: 0.7 }}>
+          لم تستلم الرمز؟ <span style={{ color: BRAND.asiacellOrange, fontWeight: 700 }}>إعادة الإرسال</span>
+        </div>
+        <div style={{
+          marginTop: 28,
+          background: filled >= 6 ? `linear-gradient(135deg, ${BRAND.asiacellOrangeLight}, ${BRAND.asiacellOrangeDeep})` : '#3a1f0a',
+          color: '#fff', borderRadius: 10, padding: '18px', textAlign: 'center',
+          fontSize: 18, fontWeight: 700,
+          boxShadow: filled >= 6 ? `0 10px 30px ${BRAND.asiacellOrange}60` : 'none',
+        }}>تأكيد الدفع</div>
+      </div>
+    </ScreenChrome>
+  );
+}
+
+function Screen7_SMS({ progress = 0 }) {
+  return (
+    <ScreenChrome dark>
+      <div style={{ background: '#000', height: 'calc(100% - 44px)', padding: '24px 16px', color: '#fff', fontFamily: '"Tajawal", "Cairo", system-ui' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px 16px', borderBottom: '1px solid #1a1a1a' }}>
+          <div style={{ color: '#0a84ff', fontSize: 16 }}>‹ Messages</div>
+          <div style={{ fontSize: 12, opacity: 0.5 }}>now</div>
+        </div>
+        <div style={{ textAlign: 'center', padding: '20px 0', borderBottom: '1px solid #1a1a1a', marginBottom: 20 }}>
+          <div style={{ width: 64, height: 64, borderRadius: '50%', background: `linear-gradient(135deg, ${BRAND.asiacellRedLight}, ${BRAND.asiacellRedDeep})`, margin: '0 auto 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <img src={BRAND.asiacellLogoSrc} alt="" style={{ height: 36, width: 'auto', filter: 'brightness(0) invert(1)' }} />
+          </div>
+          <div style={{ fontWeight: 700, fontSize: 16 }}>Asiacell</div>
+        </div>
+        <div style={{ opacity: progress, transform: `translateY(${(1 - progress) * 30}px) scale(${0.95 + 0.05 * progress})`, transition: 'all 400ms cubic-bezier(.2,.9,.3,1.3)' }}>
+          <div style={{ background: '#262628', borderRadius: 18, borderTopLeftRadius: 6, padding: '14px 16px', maxWidth: '88%', fontSize: 15, lineHeight: 1.5, direction: 'rtl' }}>
+            <div style={{ fontWeight: 700, marginBottom: 8, color: BRAND.asiacellOrangeLight }}>✓ تم الدفع بنجاح</div>
+            <div>تم خصم <span style={{ fontWeight: 700, color: '#fff' }}>9,000 د.ع</span> من رصيدكم لاشتراك Netflix الشهري.</div>
+            <div style={{ marginTop: 8, fontSize: 13, opacity: 0.75 }}>ينتهي الاشتراك في ٤ يونيو ٢٠٢٦</div>
+            <div style={{ marginTop: 10, fontSize: 12, opacity: 0.6, direction: 'ltr', textAlign: 'left' }}>Asiacell · 9:41 ص</div>
+          </div>
+        </div>
+        {progress > 0.5 && (
+          <div style={{
+            marginTop: 24, background: 'rgba(40,200,80,0.12)', border: '1px solid rgba(40,200,80,0.4)',
+            borderRadius: 12, padding: '14px', display: 'flex', alignItems: 'center', gap: 12, direction: 'rtl',
+            opacity: clamp((progress - 0.5) * 2, 0, 1),
+            transform: `translateY(${(1 - clamp((progress - 0.5) * 2, 0, 1)) * 16}px)`,
+          }}>
+            <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#28C840', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="16" height="12" viewBox="0 0 16 12"><path d="M1 6l4 4 10-9" stroke="#fff" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 700 }}>الاشتراك مفعّل</div>
+              <div style={{ fontSize: 12, opacity: 0.7 }}>استمتع بالمشاهدة الآن</div>
+            </div>
+          </div>
+        )}
+      </div>
+    </ScreenChrome>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SCENES
+// ═══════════════════════════════════════════════════════════════
+
+function SceneIntro() {
+  const { progress } = useSprite();
+  const bgScale = interpolate([0, 0.5, 1], [1, 1.05, 1.15])(progress);
+  const markScale = interpolate([0, 0.4, 0.7, 1], [0.3, 1.1, 1, 0.95], Easing.easeOutBack)(progress);
+  const markOpacity = interpolate([0, 0.2, 0.85, 1], [0, 1, 1, 0])(progress);
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0,
+      background: `radial-gradient(circle at 50% 50%, ${BRAND.asiacellOrange} 0%, ${BRAND.asiacellOrangeDeep} 60%, #8B2A05 100%)`,
+      transform: `scale(${bgScale})`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+    }}>
+      {[1, 2, 3, 4].map(i => (
+        <div key={i} style={{
+          position: 'absolute',
+          width: 400 + i * 350, height: 400 + i * 350, borderRadius: '50%',
+          border: `2px solid rgba(255,255,255,${0.06 + (1 - i/5) * 0.04})`,
+          opacity: clamp(progress * 2 - i * 0.05, 0, 1),
+        }} />
+      ))}
+      <div style={{ opacity: markOpacity, transform: `scale(${markScale})` }}>
+        <img src={BRAND.asiacellLogoSrc} alt="Asiacell" style={{ height: 360, width: 'auto', filter: 'brightness(0) invert(1)' }} />
+      </div>
+    </div>
+  );
+}
+
+function SceneHero() {
+  const { progress } = useSprite();
+  const lockupIn = Easing.easeOutCubic(clamp(progress / 0.25, 0, 1));
+  const lockupOut = clamp((progress - 0.85) / 0.15, 0, 1);
+  const lockupOp = (1 - lockupOut) * lockupIn;
+  const lockupTy = (1 - lockupIn) * 30 - lockupOut * 20;
+  const xMultScale = 0.6 + Easing.easeOutBack(clamp((progress - 0.18) / 0.18, 0, 1)) * 0.4;
+  const capProgress = clamp((progress - 0.18) / 0.7, 0, 1);
+  const capIn = Easing.easeOutCubic(clamp(capProgress / 0.2, 0, 1));
+  const capOut = clamp((progress - 0.85) / 0.15, 0, 1);
+  const capOp = (1 - capOut) * capIn;
+  const capTy = (1 - capIn) * 30 - capOut * 16;
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0,
+      background: `linear-gradient(135deg, ${BRAND.netflixBlack} 0%, #1a0508 50%, #2a0a0a 100%)`,
+      overflow: 'hidden',
+    }}>
+      <div style={{
+        position: 'absolute', left: `${-30 + progress * 100}%`, top: '-30%',
+        width: '60%', height: '160%',
+        background: `radial-gradient(ellipse, ${BRAND.asiacellOrange}33 0%, transparent 60%)`,
+        filter: 'blur(40px)',
+      }} />
+      <div style={{
+        position: 'absolute', left: 0, right: 0, top: 240,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 60,
+        opacity: lockupOp, transform: `translateY(${lockupTy}px)`,
+      }}>
+        <img src={BRAND.asiacellLogoSrc} alt="Asiacell" style={{ height: 180, width: 'auto' }} />
+        <div style={{ fontSize: 80, fontWeight: 200, color: 'rgba(255,255,255,0.5)', fontFamily: 'system-ui', transform: `scale(${xMultScale})` }}>×</div>
+        <div style={{ fontFamily: '"Bebas Neue", "Oswald", Impact, sans-serif', fontSize: 120, fontWeight: 900, color: '#E50914', letterSpacing: '0.02em', transform: 'scaleY(1.15)', textShadow: '0 8px 40px rgba(229,9,20,0.6)', lineHeight: 0.85 }}>NETFLIX</div>
+      </div>
+      <div style={{
+        position: 'absolute', left: 0, right: 0, top: 540,
+        textAlign: 'center', direction: 'rtl', fontFamily: '"Tajawal", "Cairo", system-ui',
+        opacity: capOp, transform: `translateY(${capTy}px)`,
+      }}>
+        <div style={{ fontSize: 88, fontWeight: 800, color: '#fff', lineHeight: 1.15, letterSpacing: '-0.01em', textShadow: '0 4px 30px rgba(0,0,0,0.4)' }}>
+          اشترك في نتفلكس برصيد آسياسيل
+        </div>
+        <div style={{ marginTop: 18, fontSize: 36, fontWeight: 500, color: 'rgba(255,255,255,0.75)', lineHeight: 1.3 }}>
+          بثلاث خطوات سهلة، من هاتفك مباشرةً
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StepScene({ stepNum, captionAr, subAr, ScreenComp }) {
+  const { progress } = useSprite();
+  const phoneIn = Easing.easeOutCubic(clamp(progress / 0.18, 0, 1));
+  const phoneOut = clamp((progress - 0.88) / 0.12, 0, 1);
+  const phoneOpacity = phoneIn * (1 - phoneOut);
+  const phoneTy = (1 - phoneIn) * 100 - phoneOut * 60;
+  const phoneScale = 0.94 + phoneIn * 0.06 - phoneOut * 0.04;
+  const badgeIn = Easing.easeOutBack(clamp(progress / 0.15, 0, 1));
+  const badgeOut = clamp((progress - 0.92) / 0.08, 0, 1);
+  const badgeOp = badgeIn * (1 - badgeOut);
+  const badgeScale = 0.4 + badgeIn * 0.6;
+  const capIn = Easing.easeOutCubic(clamp((progress - 0.12) / 0.2, 0, 1));
+  const capOut = clamp((progress - 0.88) / 0.12, 0, 1);
+  const capOp = capIn * (1 - capOut);
+  const capTy = (1 - capIn) * 30 - capOut * 16;
+  const arabicNums = ['','١','٢','٣','٤','٥','٦','٧'];
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 30% 50%, #1a0a05 0%, #000 70%)`, overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', left: '12%', top: '15%', width: 800, height: 1000, borderRadius: '50%', background: `radial-gradient(ellipse, ${BRAND.asiacellOrange}3a 0%, transparent 60%)`, filter: 'blur(80px)' }} />
+
+      {/* Step badge */}
+      <div style={{
+        position: 'absolute', left: 80, top: 70,
+        width: 160, height: 160, borderRadius: '50%',
+        background: `linear-gradient(135deg, ${BRAND.asiacellOrangeLight}, ${BRAND.asiacellOrangeDeep})`,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        color: '#fff', boxShadow: '0 20px 60px rgba(227,6,19,0.5), 0 0 0 8px rgba(227,6,19,0.15)',
+        transform: `scale(${badgeScale})`, opacity: badgeOp, fontFamily: '"Sora", system-ui',
+      }}>
+        <div style={{ fontSize: 18, fontWeight: 600, opacity: 0.85, letterSpacing: '0.1em' }}>STEP</div>
+        <div style={{ fontSize: 76, fontWeight: 800, lineHeight: 1, marginTop: -4 }}>{stepNum}</div>
+        <div style={{ fontSize: 14, opacity: 0.75, marginTop: 4, letterSpacing: '0.05em' }}>OF 7</div>
+      </div>
+
+      {/* Asiacell logo watermark */}
+      <div style={{ position: 'absolute', top: 90, right: 100, opacity: 0.95 }}>
+        <img src={BRAND.asiacellLogoSrc} alt="Asiacell" style={{ height: 100, width: 'auto', filter: 'brightness(0) invert(1)' }} />
+      </div>
+
+      {/* Phone */}
+      <div style={{
+        position: 'absolute', left: 220, top: 85,
+        opacity: phoneOpacity,
+        transform: `translateY(${phoneTy}px) scale(${phoneScale})`,
+        transformOrigin: 'center top', willChange: 'transform, opacity',
+      }}>
+        <PhoneFrame width={460} height={950}>
+          <ScreenComp />
+        </PhoneFrame>
+      </div>
+
+      {/* Caption */}
+      <div style={{
+        position: 'absolute', right: 100, top: 320, width: 880,
+        direction: 'rtl', fontFamily: '"Tajawal", "Cairo", system-ui',
+        opacity: capOp, transform: `translateY(${capTy}px)`,
+      }}>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 12,
+          background: 'rgba(227,6,19,0.15)', border: `2px solid ${BRAND.asiacellOrange}`,
+          borderRadius: 100, padding: '10px 28px',
+          fontSize: 24, fontWeight: 700, color: BRAND.asiacellOrange,
+          marginBottom: 32, direction: 'rtl',
+        }}>
+          <span>الخطوة {arabicNums[stepNum]}</span>
+        </div>
+        <div style={{ fontSize: 104, fontWeight: 800, color: '#fff', lineHeight: 1.1, letterSpacing: '-0.01em', marginBottom: 28, textShadow: '0 4px 30px rgba(0,0,0,0.5)' }}>
+          {captionAr}
+        </div>
+        {subAr && (
+          <div style={{ fontSize: 34, fontWeight: 500, color: 'rgba(255,255,255,0.78)', lineHeight: 1.4 }}>
+            {subAr}
+          </div>
+        )}
+      </div>
+
+      {/* Progress dots */}
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 90, display: 'flex', gap: 18, alignItems: 'center', justifyContent: 'center' }}>
+        {[1,2,3,4,5,6,7].map(i => {
+          const isActive = i === stepNum;
+          const isDone = i < stepNum;
+          return (
+            <div key={i} style={{
+              width: isActive ? 48 : 12, height: 12, borderRadius: 6,
+              background: isActive ? BRAND.asiacellOrange : (isDone ? BRAND.asiacellOrangeDeep : 'rgba(255,255,255,0.25)'),
+              transition: 'all 300ms',
+            }} />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SceneEnd() {
+  const { progress } = useSprite();
+  const t = Easing.easeOutCubic(clamp(progress * 1.5, 0, 1));
+  const exit = clamp((progress - 0.85) / 0.15, 0, 1);
+  const tagP = clamp((progress - 0.15) / 0.7, 0, 1);
+  const tagIn = Easing.easeOutCubic(clamp(tagP / 0.2, 0, 1));
+  const tagOut = clamp((progress - 0.88) / 0.12, 0, 1);
+  const tagOp = tagIn * (1 - tagOut);
+  const tagTy = (1 - tagIn) * 30 - tagOut * 16;
+  const urlOp = clamp((progress - 0.3) * 3, 0, 1) * (1 - tagOut);
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0,
+      background: `linear-gradient(135deg, #000 0%, #1a0508 40%, ${BRAND.asiacellOrangeDeep} 100%)`,
+      overflow: 'hidden',
+    }}>
+      <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, opacity: t * 0.25 }}>
+        {[...Array(16)].map((_, i) => {
+          const angle = (i / 16) * Math.PI * 2;
+          const len = 1200;
+          return <line key={i} x1="960" y1="540" x2={960 + Math.cos(angle) * len * t} y2={540 + Math.sin(angle) * len * t} stroke={BRAND.asiacellOrange} strokeWidth="2" opacity="0.3" />;
+        })}
+      </svg>
+      <div style={{
+        position: 'absolute', left: '50%', top: '50%', width: 1200, height: 1200, borderRadius: '50%',
+        background: `radial-gradient(circle, ${BRAND.asiacellOrange}66 0%, transparent 60%)`,
+        transform: `translate(-50%, -50%) scale(${0.5 + t * 0.8})`,
+        filter: 'blur(60px)', opacity: 1 - exit,
+      }} />
+      <div style={{
+        position: 'absolute', left: 0, right: 0, top: 320,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 80,
+        opacity: (1 - exit) * t, transform: `scale(${0.85 + t * 0.15})`,
+      }}>
+        <img src={BRAND.asiacellLogoSrc} alt="Asiacell" style={{ height: 220, width: 'auto', filter: 'brightness(0) invert(1)' }} />
+        <div style={{ fontSize: 100, fontWeight: 200, color: 'rgba(255,255,255,0.6)', fontFamily: 'system-ui' }}>×</div>
+        <div style={{ fontFamily: '"Bebas Neue", "Oswald", Impact, sans-serif', fontSize: 160, fontWeight: 900, color: '#fff', letterSpacing: '0.02em', transform: 'scaleY(1.15)', textShadow: '0 8px 40px rgba(0,0,0,0.5)', lineHeight: 0.85 }}>NETFLIX</div>
+      </div>
+      <div style={{
+        position: 'absolute', left: 0, right: 0, top: 680,
+        textAlign: 'center', direction: 'rtl', fontFamily: '"Tajawal", "Cairo", system-ui',
+        opacity: tagOp, transform: `translateY(${tagTy}px)`,
+      }}>
+        <div style={{ fontSize: 104, fontWeight: 800, color: '#fff', lineHeight: 1.15, textShadow: '0 4px 30px rgba(0,0,0,0.4)' }}>
+          استمتع بالمشاهدة
+        </div>
+        <div style={{ marginTop: 18, fontSize: 38, fontWeight: 500, color: 'rgba(255,255,255,0.78)' }}>
+          ادفع من رصيد آسياسيل · بدون بطاقة ائتمان
+        </div>
+      </div>
+      <div style={{
+        position: 'absolute', bottom: 80, left: 0, right: 0,
+        textAlign: 'center', opacity: urlOp,
+        color: 'rgba(255,255,255,0.7)', fontFamily: '"JetBrains Mono", monospace',
+        fontSize: 26, letterSpacing: '0.05em',
+      }}>netflix.com/iq</div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MAIN APP
+// Timeline:
+//  0–3    Asiacell brand intro
+//  3–7    Hero — Asiacell × Netflix
+//  7–11   Step 1 — Netflix Iraq URL
+// 11–15   Step 2 — Email signin
+// 15–19   Step 3 — Choose plan
+// 19–23   Step 4 — Choose Asiacell payment
+// 23–27   Step 5 — Phone number
+// 27–31   Step 6 — OTP
+// 31–35   Step 7 — SMS confirmation
+// 35–39   End card
+// ═══════════════════════════════════════════════════════════════
+
+const TOTAL = 39;
+
+function Step1Wrap() {
+  const { progress } = useSprite();
+  return <Screen1_URL progress={clamp(progress * 1.4, 0, 1)} />;
+}
+function Step2Wrap() {
+  const { progress } = useSprite();
+  return <Screen2_Email progress={clamp(progress * 1.3, 0, 1)} />;
+}
+function Step3Wrap() {
+  const { progress } = useSprite();
+  const sel = progress < 0.4 ? 0 : (progress < 0.7 ? 2 : 1);
+  return <Screen3_Plan selected={sel} />;
+}
+function Step4Wrap() {
+  const { progress } = useSprite();
+  return <Screen4_Payment highlight={progress > 0.35} />;
+}
+function Step5Wrap() {
+  const { progress } = useSprite();
+  return <Screen5_Phone progress={clamp(progress * 1.4, 0, 1)} />;
+}
+function Step6Wrap() {
+  const { progress } = useSprite();
+  return <Screen6_OTP filled={Math.min(6, Math.floor(progress * 8))} />;
+}
+function Step7Wrap() {
+  const { progress } = useSprite();
+  return <Screen7_SMS progress={clamp(progress * 1.4, 0, 1)} />;
+}
+
+function BottomChip() {
+  return (
+    <div style={{
+      position: 'absolute', left: 60, bottom: 60,
+      display: 'flex', alignItems: 'center', gap: 14,
+      padding: '14px 22px',
+      background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(20px)',
+      border: '1px solid rgba(255,255,255,0.1)', borderRadius: 100,
+    }}>
+      <div style={{ fontFamily: '"Bebas Neue", Impact, sans-serif', fontSize: 22, color: '#E50914', fontWeight: 900, letterSpacing: '0.05em', transform: 'scaleY(1.15)' }}>NETFLIX</div>
+      <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.2)' }} />
+      <img src={BRAND.asiacellLogoSrc} alt="Asiacell" style={{ height: 26, width: 'auto', filter: 'brightness(0) invert(1)' }} />
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <Stage width={1920} height={1080} duration={TOTAL} background="#000" persistKey="asiacell-netflix">
+      <Sprite start={0} end={3}><SceneIntro /></Sprite>
+      <Sprite start={3} end={7}><SceneHero /></Sprite>
+
+      <Sprite start={7} end={11}>
+        <StepScene stepNum={1} captionAr="افتح الرابط"
+          subAr={<>توجه إلى <span style={{direction:'ltr', display:'inline-block', color: BRAND.asiacellOrangeLight, fontWeight: 700, fontFamily: 'JetBrains Mono'}}>netflix.com/iq</span> من متصفحك</>}
+          ScreenComp={Step1Wrap} />
+      </Sprite>
+
+      <Sprite start={11} end={15}>
+        <StepScene stepNum={2} captionAr="سجّل الدخول"
+          subAr="باستخدام بريدك الإلكتروني، ثم اضغط «التالي»"
+          ScreenComp={Step2Wrap} />
+      </Sprite>
+
+      <Sprite start={15} end={19}>
+        <StepScene stepNum={3} captionAr="اختر نوع الاشتراك"
+          subAr="ثلاث باقات تناسب احتياجاتك من Mobile إلى Premium"
+          ScreenComp={Step3Wrap} />
+      </Sprite>
+
+      <Sprite start={19} end={23}>
+        <StepScene stepNum={4} captionAr="اختر آسياسيل"
+          subAr="كطريقة للدفع — الدفع مباشرة من رصيد هاتفك"
+          ScreenComp={Step4Wrap} />
+      </Sprite>
+
+      <Sprite start={23} end={27}>
+        <StepScene stepNum={5} captionAr="أدخل رقم هاتفك"
+          subAr="رقمك المسجّل لدى آسياسيل"
+          ScreenComp={Step5Wrap} />
+      </Sprite>
+
+      <Sprite start={27} end={31}>
+        <StepScene stepNum={6} captionAr="أدخل رمز التحقق"
+          subAr="رمز OTP المرسل عبر رسالة نصية لإتمام عملية الدفع"
+          ScreenComp={Step6Wrap} />
+      </Sprite>
+
+      <Sprite start={31} end={35}>
+        <StepScene stepNum={7} captionAr="تم الاشتراك بنجاح"
+          subAr="ستصلك رسالة نصية بتفاصيل عملية الدفع وتأكيد الاشتراك"
+          ScreenComp={Step7Wrap} />
+      </Sprite>
+
+      <Sprite start={35} end={39}><SceneEnd /></Sprite>
+
+      <Sprite start={7} end={35}><BottomChip /></Sprite>
+    </Stage>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
