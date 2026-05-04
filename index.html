@@ -31,6 +31,13 @@
 <script type="text/babel" data-presets="env,react">
 const { useState, useEffect, useRef, useMemo, useContext, createContext } = React;
 
+// Orientation: ?orient=portrait switches the stage to 1080×1920 with re-laid-out scenes.
+const IS_PORTRAIT = typeof window !== 'undefined' &&
+  typeof location !== 'undefined' &&
+  new URLSearchParams(location.search).get('orient') === 'portrait';
+const STAGE_W = IS_PORTRAIT ? 1080 : 1920;
+const STAGE_H = IS_PORTRAIT ? 1920 : 1080;
+
 // ═══════════════════════════════════════════════════════════════
 // ANIMATION ENGINE
 // ═══════════════════════════════════════════════════════════════
@@ -805,23 +812,25 @@ function SceneHero() {
         filter: 'blur(40px)',
       }} />
       <div style={{
-        position: 'absolute', left: 0, right: 0, top: 240,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 60,
+        position: 'absolute', left: 0, right: 0, top: IS_PORTRAIT ? 580 : 240,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        gap: IS_PORTRAIT ? 30 : 60,
         opacity: lockupOp, transform: `translateY(${lockupTy}px)`,
       }}>
-        <img src={BRAND.asiacellLogoSrc} alt="Asiacell" style={{ height: 180, width: 'auto' }} />
-        <div style={{ fontSize: 80, fontWeight: 200, color: 'rgba(255,255,255,0.5)', fontFamily: 'system-ui', transform: `scale(${xMultScale})` }}>×</div>
-        <div style={{ fontFamily: '"Bebas Neue", "Oswald", Impact, sans-serif', fontSize: 120, fontWeight: 900, color: '#E50914', letterSpacing: '0.02em', transform: 'scaleY(1.15)', textShadow: '0 8px 40px rgba(229,9,20,0.6)', lineHeight: 0.85 }}>NETFLIX</div>
+        <img src={BRAND.asiacellLogoSrc} alt="Asiacell" style={{ height: IS_PORTRAIT ? 120 : 180, width: 'auto' }} />
+        <div style={{ fontSize: IS_PORTRAIT ? 56 : 80, fontWeight: 200, color: 'rgba(255,255,255,0.5)', fontFamily: 'system-ui', transform: `scale(${xMultScale})` }}>×</div>
+        <div style={{ fontFamily: '"Bebas Neue", "Oswald", Impact, sans-serif', fontSize: IS_PORTRAIT ? 100 : 120, fontWeight: 900, color: '#E50914', letterSpacing: '0.02em', transform: 'scaleY(1.15)', textShadow: '0 8px 40px rgba(229,9,20,0.6)', lineHeight: 0.85 }}>NETFLIX</div>
       </div>
       <div style={{
-        position: 'absolute', left: 0, right: 0, top: 540,
+        position: 'absolute', left: 0, right: 0, top: IS_PORTRAIT ? 920 : 540,
         textAlign: 'center', direction: 'rtl', fontFamily: '"Tajawal", "Cairo", system-ui',
         opacity: capOp, transform: `translateY(${capTy}px)`,
+        padding: IS_PORTRAIT ? '0 50px' : 0,
       }}>
-        <div style={{ fontSize: 88, fontWeight: 800, color: '#fff', lineHeight: 1.15, letterSpacing: '-0.01em', textShadow: '0 4px 30px rgba(0,0,0,0.4)' }}>
+        <div style={{ fontSize: IS_PORTRAIT ? 76 : 88, fontWeight: 800, color: '#fff', lineHeight: 1.2, letterSpacing: '-0.01em', textShadow: '0 4px 30px rgba(0,0,0,0.4)' }}>
           اشترك في نتفلكس برصيد آسياسيل
         </div>
-        <div style={{ marginTop: 18, fontSize: 36, fontWeight: 500, color: 'rgba(255,255,255,0.75)', lineHeight: 1.3 }}>
+        <div style={{ marginTop: 18, fontSize: IS_PORTRAIT ? 30 : 36, fontWeight: 500, color: 'rgba(255,255,255,0.75)', lineHeight: 1.3 }}>
           بثلاث خطوات سهلة، من هاتفك مباشرةً
         </div>
       </div>
@@ -852,26 +861,30 @@ function StepScene({ stepNum, captionAr, subAr, ScreenComp }) {
 
       {/* Step badge */}
       <div style={{
-        position: 'absolute', left: 80, top: 70,
-        width: 160, height: 160, borderRadius: '50%',
+        position: 'absolute',
+        left: IS_PORTRAIT ? 50 : 80, top: IS_PORTRAIT ? 50 : 70,
+        width: IS_PORTRAIT ? 130 : 160, height: IS_PORTRAIT ? 130 : 160,
+        borderRadius: '50%',
         background: `linear-gradient(135deg, ${BRAND.asiacellOrangeLight}, ${BRAND.asiacellOrangeDeep})`,
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         color: '#fff', boxShadow: '0 20px 60px rgba(227,6,19,0.5), 0 0 0 8px rgba(227,6,19,0.15)',
         transform: `scale(${badgeScale})`, opacity: badgeOp, fontFamily: '"Sora", system-ui',
       }}>
-        <div style={{ fontSize: 18, fontWeight: 600, opacity: 0.85, letterSpacing: '0.1em' }}>STEP</div>
-        <div style={{ fontSize: 76, fontWeight: 800, lineHeight: 1, marginTop: -4 }}>{stepNum}</div>
-        <div style={{ fontSize: 14, opacity: 0.75, marginTop: 4, letterSpacing: '0.05em' }}>OF 7</div>
+        <div style={{ fontSize: IS_PORTRAIT ? 14 : 18, fontWeight: 600, opacity: 0.85, letterSpacing: '0.1em' }}>STEP</div>
+        <div style={{ fontSize: IS_PORTRAIT ? 60 : 76, fontWeight: 800, lineHeight: 1, marginTop: -4 }}>{stepNum}</div>
+        <div style={{ fontSize: IS_PORTRAIT ? 11 : 14, opacity: 0.75, marginTop: 4, letterSpacing: '0.05em' }}>OF 7</div>
       </div>
 
       {/* Asiacell logo watermark */}
-      <div style={{ position: 'absolute', top: 90, right: 100, opacity: 0.95 }}>
-        <img src={BRAND.asiacellLogoSrc} alt="Asiacell" style={{ height: 100, width: 'auto', filter: 'brightness(0) invert(1)' }} />
+      <div style={{ position: 'absolute', top: IS_PORTRAIT ? 70 : 90, right: IS_PORTRAIT ? 50 : 100, opacity: 0.95 }}>
+        <img src={BRAND.asiacellLogoSrc} alt="Asiacell" style={{ height: IS_PORTRAIT ? 70 : 100, width: 'auto', filter: 'brightness(0) invert(1)' }} />
       </div>
 
       {/* Phone */}
       <div style={{
-        position: 'absolute', left: 220, top: 85,
+        position: 'absolute',
+        left: IS_PORTRAIT ? (STAGE_W - 460) / 2 : 220,
+        top: IS_PORTRAIT ? 240 : 85,
         opacity: phoneOpacity,
         transform: `translateY(${phoneTy}px) scale(${phoneScale})`,
         transformOrigin: 'center top', willChange: 'transform, opacity',
@@ -883,24 +896,30 @@ function StepScene({ stepNum, captionAr, subAr, ScreenComp }) {
 
       {/* Caption */}
       <div style={{
-        position: 'absolute', right: 100, top: 320, width: 880,
+        position: 'absolute',
+        right: IS_PORTRAIT ? 0 : 100,
+        left: IS_PORTRAIT ? 0 : 'auto',
+        top: IS_PORTRAIT ? 1280 : 320,
+        width: IS_PORTRAIT ? '100%' : 880,
+        padding: IS_PORTRAIT ? '0 60px' : 0,
         direction: 'rtl', fontFamily: '"Tajawal", "Cairo", system-ui',
+        textAlign: IS_PORTRAIT ? 'center' : 'right',
         opacity: capOp, transform: `translateY(${capTy}px)`,
       }}>
         <div style={{
           display: 'inline-flex', alignItems: 'center', gap: 12,
           background: 'rgba(227,6,19,0.15)', border: `2px solid ${BRAND.asiacellOrange}`,
-          borderRadius: 100, padding: '10px 28px',
-          fontSize: 24, fontWeight: 700, color: BRAND.asiacellOrange,
-          marginBottom: 32, direction: 'rtl',
+          borderRadius: 100, padding: IS_PORTRAIT ? '8px 22px' : '10px 28px',
+          fontSize: IS_PORTRAIT ? 20 : 24, fontWeight: 700, color: BRAND.asiacellOrange,
+          marginBottom: IS_PORTRAIT ? 22 : 32, direction: 'rtl',
         }}>
           <span>الخطوة {arabicNums[stepNum]}</span>
         </div>
-        <div style={{ fontSize: 104, fontWeight: 800, color: '#fff', lineHeight: 1.1, letterSpacing: '-0.01em', marginBottom: 28, textShadow: '0 4px 30px rgba(0,0,0,0.5)' }}>
+        <div style={{ fontSize: IS_PORTRAIT ? 76 : 104, fontWeight: 800, color: '#fff', lineHeight: 1.15, letterSpacing: '-0.01em', marginBottom: IS_PORTRAIT ? 20 : 28, textShadow: '0 4px 30px rgba(0,0,0,0.5)' }}>
           {captionAr}
         </div>
         {subAr && (
-          <div style={{ fontSize: 34, fontWeight: 500, color: 'rgba(255,255,255,0.78)', lineHeight: 1.4 }}>
+          <div style={{ fontSize: IS_PORTRAIT ? 26 : 34, fontWeight: 500, color: 'rgba(255,255,255,0.78)', lineHeight: 1.4 }}>
             {subAr}
           </div>
         )}
@@ -945,7 +964,8 @@ function SceneEnd() {
         {[...Array(16)].map((_, i) => {
           const angle = (i / 16) * Math.PI * 2;
           const len = 1200;
-          return <line key={i} x1="960" y1="540" x2={960 + Math.cos(angle) * len * t} y2={540 + Math.sin(angle) * len * t} stroke={BRAND.asiacellOrange} strokeWidth="2" opacity="0.3" />;
+          const cx = STAGE_W / 2, cy = STAGE_H / 2;
+          return <line key={i} x1={cx} y1={cy} x2={cx + Math.cos(angle) * len * t} y2={cy + Math.sin(angle) * len * t} stroke={BRAND.asiacellOrange} strokeWidth="2" opacity="0.3" />;
         })}
       </svg>
       <div style={{
@@ -955,31 +975,33 @@ function SceneEnd() {
         filter: 'blur(60px)', opacity: 1 - exit,
       }} />
       <div style={{
-        position: 'absolute', left: 0, right: 0, top: 320,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 80,
+        position: 'absolute', left: 0, right: 0, top: IS_PORTRAIT ? 620 : 320,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        gap: IS_PORTRAIT ? 36 : 80,
         opacity: (1 - exit) * t, transform: `scale(${0.85 + t * 0.15})`,
       }}>
-        <img src={BRAND.asiacellLogoSrc} alt="Asiacell" style={{ height: 220, width: 'auto', filter: 'brightness(0) invert(1)' }} />
-        <div style={{ fontSize: 100, fontWeight: 200, color: 'rgba(255,255,255,0.6)', fontFamily: 'system-ui' }}>×</div>
-        <div style={{ fontFamily: '"Bebas Neue", "Oswald", Impact, sans-serif', fontSize: 160, fontWeight: 900, color: '#fff', letterSpacing: '0.02em', transform: 'scaleY(1.15)', textShadow: '0 8px 40px rgba(0,0,0,0.5)', lineHeight: 0.85 }}>NETFLIX</div>
+        <img src={BRAND.asiacellLogoSrc} alt="Asiacell" style={{ height: IS_PORTRAIT ? 140 : 220, width: 'auto', filter: 'brightness(0) invert(1)' }} />
+        <div style={{ fontSize: IS_PORTRAIT ? 70 : 100, fontWeight: 200, color: 'rgba(255,255,255,0.6)', fontFamily: 'system-ui' }}>×</div>
+        <div style={{ fontFamily: '"Bebas Neue", "Oswald", Impact, sans-serif', fontSize: IS_PORTRAIT ? 130 : 160, fontWeight: 900, color: '#fff', letterSpacing: '0.02em', transform: 'scaleY(1.15)', textShadow: '0 8px 40px rgba(0,0,0,0.5)', lineHeight: 0.85 }}>NETFLIX</div>
       </div>
       <div style={{
-        position: 'absolute', left: 0, right: 0, top: 680,
+        position: 'absolute', left: 0, right: 0, top: IS_PORTRAIT ? 1100 : 680,
         textAlign: 'center', direction: 'rtl', fontFamily: '"Tajawal", "Cairo", system-ui',
+        padding: IS_PORTRAIT ? '0 50px' : 0,
         opacity: tagOp, transform: `translateY(${tagTy}px)`,
       }}>
-        <div style={{ fontSize: 104, fontWeight: 800, color: '#fff', lineHeight: 1.15, textShadow: '0 4px 30px rgba(0,0,0,0.4)' }}>
+        <div style={{ fontSize: IS_PORTRAIT ? 90 : 104, fontWeight: 800, color: '#fff', lineHeight: 1.15, textShadow: '0 4px 30px rgba(0,0,0,0.4)' }}>
           استمتع بالمشاهدة
         </div>
-        <div style={{ marginTop: 18, fontSize: 38, fontWeight: 500, color: 'rgba(255,255,255,0.78)' }}>
+        <div style={{ marginTop: 18, fontSize: IS_PORTRAIT ? 30 : 38, fontWeight: 500, color: 'rgba(255,255,255,0.78)' }}>
           ادفع من رصيد آسياسيل · بدون بطاقة ائتمان
         </div>
       </div>
       <div style={{
-        position: 'absolute', bottom: 80, left: 0, right: 0,
+        position: 'absolute', bottom: IS_PORTRAIT ? 100 : 80, left: 0, right: 0,
         textAlign: 'center', opacity: urlOp,
         color: 'rgba(255,255,255,0.7)', fontFamily: '"JetBrains Mono", monospace',
-        fontSize: 26, letterSpacing: '0.05em',
+        fontSize: IS_PORTRAIT ? 22 : 26, letterSpacing: '0.05em',
       }}>netflix.com/iq</div>
     </div>
   );
@@ -1050,7 +1072,7 @@ function BottomChip() {
 
 function App() {
   return (
-    <Stage width={1920} height={1080} duration={TOTAL} background="#000" persistKey="asiacell-netflix">
+    <Stage width={STAGE_W} height={STAGE_H} duration={TOTAL} background="#000" persistKey="asiacell-netflix">
       <Sprite start={0} end={3}><SceneIntro /></Sprite>
       <Sprite start={3} end={7}><SceneHero /></Sprite>
 

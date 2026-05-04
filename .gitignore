@@ -4,3 +4,5 @@ render/smoke.js
 render/render.log
 render/package.json
 render/package-lock.json
+render/render-4k.log
+render/render-portrait.log
