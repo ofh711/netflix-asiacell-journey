@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<title>Asiacell × Netflix — Customer Journey</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=Cairo:wght@400;600;700;800;900&family=Sora:wght@400;600;700;800&family=Bebas+Neue&family=Oswald:wght@700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; }
+  body { font-family: 'Tajawal', system-ui, sans-serif; }
+  @keyframes blink { 0%, 50% { opacity: 1 } 51%, 100% { opacity: 0 } }
+  * { box-sizing: border-box; }
+</style>
+</head>
+<body>
+<div id="root" style="position: fixed; inset: 0;"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="animations.jsx"></script>
+<script type="text/babel" src="brand.jsx"></script>
+<script type="text/babel" src="helpers.jsx"></script>
+<script type="text/babel" src="screens.jsx"></script>
+<script type="text/babel" src="scenes.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+const { useState, useEffect } = React;
+
+// Timeline (seconds)
+//  0 - 3    Intro Asiacell brand (3s)
+//  3 - 7    Hero — Asiacell × Netflix (4s)
+//  7 - 11   Step 1 — Netflix Iraq URL (4s)
+// 11 - 15   Step 2 — Email signin (4s)
+// 15 - 19   Step 3 — Choose plan (4s)
+// 19 - 23   Step 4 — Choose Asiacell payment (4s)
+// 23 - 27   Step 5 — Phone number (4s)
+// 27 - 31   Step 6 — OTP (4s)
+// 31 - 35   Step 7 — SMS confirmation (4s)
+// 35 - 39   End card (4s)
+
+const TOTAL = 39;
+
+function Step1Wrap() {
+  const { progress } = useSprite();
+  const p = clamp(progress * 1.4, 0, 1);
+  return <Screen1_URL progress={p} />;
+}
+function Step2Wrap() {
+  const { progress } = useSprite();
+  const p = clamp(progress * 1.3, 0, 1);
+  return <Screen2_Email progress={p} />;
+}
+function Step3Wrap() {
+  const { progress } = useSprite();
+  // Cycle highlight: starts on Standard
+  const sel = progress < 0.4 ? 0 : (progress < 0.7 ? 2 : 1);
+  return <Screen3_Plan selected={sel} />;
+}
+function Step4Wrap() {
+  const { progress } = useSprite();
+  return <Screen4_Payment highlight={progress > 0.35} />;
+}
+function Step5Wrap() {
+  const { progress } = useSprite();
+  return <Screen5_Phone progress={clamp(progress * 1.4, 0, 1)} />;
+}
+function Step6Wrap() {
+  const { progress } = useSprite();
+  // fill 0..6 over progress
+  const filled = Math.min(6, Math.floor(progress * 8));
+  return <Screen6_OTP filled={filled} />;
+}
+function Step7Wrap() {
+  const { progress } = useSprite();
+  return <Screen7_SMS progress={clamp(progress * 1.4, 0, 1)} />;
+}
+
+function Tap({ at, x, y }) {
+  return (
+    <Sprite start={at} end={at + 0.9}>
+      <TapPulse x={x} y={y} />
+    </Sprite>
+  );
+}
+
+function App() {
+  return (
+    <Stage width={1920} height={1080} duration={TOTAL} background="#000" persistKey="asiacell-netflix">
+      {/* 0–3: Intro */}
+      <Sprite start={0} end={3}>
+        <SceneIntro />
+      </Sprite>
+
+      {/* 3–7: Hero */}
+      <Sprite start={3} end={7}>
+        <SceneHero />
+      </Sprite>
+
+      {/* 7–11: Step 1 — URL */}
+      <Sprite start={7} end={11}>
+        <StepScene
+          stepNum={1}
+          captionAr="افتح الرابط"
+          subAr={<>توجه إلى <span style={{direction:'ltr', display:'inline-block', color: BRAND.asiacellOrangeLight, fontWeight: 700, fontFamily: 'JetBrains Mono'}}>netflix.com/iq</span> من متصفحك</>}
+          ScreenComp={Step1Wrap}
+        />
+      </Sprite>
+
+      {/* 11–15: Step 2 — Email */}
+      <Sprite start={11} end={15}>
+        <StepScene
+          stepNum={2}
+          captionAr="سجّل الدخول"
+          subAr="باستخدام بريدك الإلكتروني، ثم اضغط «التالي»"
+          ScreenComp={Step2Wrap}
+        />
+      </Sprite>
+
+      {/* 15–19: Step 3 — Plan */}
+      <Sprite start={15} end={19}>
+        <StepScene
+          stepNum={3}
+          captionAr="اختر نوع الاشتراك"
+          subAr="ثلاث باقات تناسب احتياجاتك من Mobile إلى Premium"
+          ScreenComp={Step3Wrap}
+        />
+      </Sprite>
+
+      {/* 19–23: Step 4 — Asiacell payment */}
+      <Sprite start={19} end={23}>
+        <StepScene
+          stepNum={4}
+          captionAr="اختر آسياسيل"
+          subAr="كطريقة للدفع — الدفع مباشرة من رصيد هاتفك"
+          ScreenComp={Step4Wrap}
+        />
+      </Sprite>
+
+      {/* 23–27: Step 5 — Phone */}
+      <Sprite start={23} end={27}>
+        <StepScene
+          stepNum={5}
+          captionAr="أدخل رقم هاتفك"
+          subAr="رقمك المسجّل لدى آسياسيل"
+          ScreenComp={Step5Wrap}
+        />
+      </Sprite>
+
+      {/* 27–31: Step 6 — OTP */}
+      <Sprite start={27} end={31}>
+        <StepScene
+          stepNum={6}
+          captionAr="أدخل رمز التحقق"
+          subAr="رمز OTP المرسل عبر رسالة نصية لإتمام عملية الدفع"
+          ScreenComp={Step6Wrap}
+        />
+      </Sprite>
+
+      {/* 31–35: Step 7 — SMS confirmation */}
+      <Sprite start={31} end={35}>
+        <StepScene
+          stepNum={7}
+          captionAr="تم الاشتراك بنجاح"
+          subAr="ستصلك رسالة نصية بتفاصيل عملية الدفع وتأكيد الاشتراك"
+          ScreenComp={Step7Wrap}
+        />
+      </Sprite>
+
+      {/* 35–39: End card */}
+      <Sprite start={35} end={39}>
+        <SceneEnd />
+      </Sprite>
+
+      {/* Persistent corner brand chip — visible during all step scenes */}
+      <Sprite start={7} end={35}>
+        <BottomChip />
+      </Sprite>
+    </Stage>
+  );
+}
+
+function BottomChip() {
+  return (
+    <div style={{
+      position: 'absolute', left: 60, bottom: 60,
+      display: 'flex', alignItems: 'center', gap: 14,
+      padding: '14px 22px',
+      background: 'rgba(255,255,255,0.05)',
+      backdropFilter: 'blur(20px)',
+      border: '1px solid rgba(255,255,255,0.1)',
+      borderRadius: 100,
+    }}>
+      <div style={{
+        fontFamily: '"Bebas Neue", Impact, sans-serif',
+        fontSize: 22, color: '#E50914', fontWeight: 900,
+        letterSpacing: '0.05em', transform: 'scaleY(1.15)',
+      }}>NETFLIX</div>
+      <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.2)' }} />
+      <img src={BRAND.asiacellLogoSrc} alt="Asiacell" style={{ height: 26, width: 'auto', filter: 'brightness(0) invert(1)' }} />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
