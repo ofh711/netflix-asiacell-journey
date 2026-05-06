@@ -28,14 +28,16 @@ const FPS      = parseInt(process.env.FPS    || '30', 10);
 const PARAMS   = process.env.PARAMS || '';
 const OUT      = path.resolve(process.env.OUT || path.join(ROOT, 'netflix-asiacell-journey.mp4'));
 const CRF      = parseInt(process.env.CRF || '20', 10);
+const HTML_FILE = process.env.HTML || 'index.html';
+const DURATION_OVERRIDE = process.env.DURATION ? parseFloat(process.env.DURATION) : null;
 
-const DURATION = 39;
-const TOTAL_FRAMES = DURATION * FPS;
+const DURATION = DURATION_OVERRIDE || 39;
+const TOTAL_FRAMES = Math.round(DURATION * FPS);
 const OUT_W = Math.round(WIDTH * DSF);
 const OUT_H = Math.round(HEIGHT * DSF);
 
 const queryStr = '?record=1' + (PARAMS ? '&' + PARAMS : '');
-const HTML_URL = 'file://' + path.join(ROOT, 'index.html') + queryStr;
+const HTML_URL = 'file://' + path.join(ROOT, HTML_FILE) + queryStr;
 
 (async () => {
   console.log(`▶ ${OUT_W}×${OUT_H} @ ${FPS}fps · ${TOTAL_FRAMES} frames · CRF ${CRF}`);
